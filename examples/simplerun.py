@@ -14,11 +14,10 @@ from spatch.image import spatialcontext
 from spatch.image.mask import get_boundary_mask
 from spatch.segmentation.patchbased import SAPS
 from spatch.utilities.io import open_image, get_affine, save_3d_labels_data
-from spatch.image.spatialcontext import NORMALISED_COORDINATES, GDT
+from spatch.image.spatialcontext import COORDINATES, GDT
 
-INITIAL_SPATIAL_INFO = NORMALISED_COORDINATES
+INITIAL_SPATIAL_INFO = COORDINATES
 REFINEMENT_SPATIAL_INFO = GDT
-IMAGE_EXPAND = True
 
 
 def get_subject_id(fileName):
