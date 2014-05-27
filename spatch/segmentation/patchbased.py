@@ -47,8 +47,7 @@ class RegionalSAPS(object):
 
     def __init__(self, regionalAtlasDict, imagesFolder, labelsFolder, patchSize, spatialWeight=None,
                  spatialInfoType=EDT, dtLabelsFolder=None, gdtImagesFolder=None,
-                 boundaryDilation=2, boundaryClipping=0, minValue=None, maxValue=None, imageExpand=True, is2D=False,
-                 separableGaussians=False):
+                 boundaryDilation=2, boundaryClipping=0, minValue=None, maxValue=None, imageExpand=True, is2D=False):
         """
         regionIndex are typically indexed by the EDT label
         @param regionalAtlasDict: Dictionary of region index to atlases {regionIndex:[atlases]}
