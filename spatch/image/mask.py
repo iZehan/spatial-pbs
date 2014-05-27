@@ -1,7 +1,7 @@
 """
 Created on 22 Mar 2012
 
-@author: zw606
+@author: Zehan Wang
 """
 
 from scipy.ndimage import morphology

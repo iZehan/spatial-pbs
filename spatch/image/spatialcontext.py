@@ -1,7 +1,7 @@
 """
 Created on 13/01/14
 
-@author: zw606
+@author: Zehan Wang
 """
 
 from sklearn.externals.joblib import Parallel, delayed

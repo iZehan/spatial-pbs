@@ -2,6 +2,11 @@
 #cython: boundscheck=False
 #cython: nonecheck=False
 #cython: wraparound=False
+"""
+Created on 21 Feb 2014
+
+@author: Zehan Wang
+"""
 import numpy
 cimport numpy
 numpy.import_array()

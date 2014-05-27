@@ -4,22 +4,22 @@ Created on 12 Apr 2013
 This works directly on the images without using pre-built patch dictionaries
 Atlas selection does not occur here
 
-@author: zw606
+@author: Zehan Wang
 """
 
 from collections import deque
 
 import numpy
 from numpy.core.umath import logical_and
-from spatch.image.transform import zero_out_boundary
 
 from labelfusion import non_local_means_presq
 from helper import arrange_results_by_location, DictResultsSorter
 
-from spatch.image import patchmaker, mask
-from spatch.image.mask import union_masks, get_min_max_mask
-from spatch.image.patchmaker import EDT
+from spatch.image import patchmaker, spatialcontext
+from spatch.image.spatialcontext import EDT
+from spatch.image.mask import union_masks, get_min_max_mask, dilate_mask
 from spatch.knn.searcher import ImagePatchSearcher
+from spatch.image.transform import zero_out_boundary
 from spatch.utilities.paralleling import multi_process_list_with_consumer
 
 
@@ -215,8 +215,8 @@ class SAPS(object):
             if spatialInfo is None:
                 if self.spatialInfoType in patchmaker.GENERIC_SPATIAL_INFO_TYPES:
                     print "Getting initial spatial information..."
-                    spatialInfo = patchmaker.get_generic_spatial_info(imageData, self.spatialInfoType)
-                elif self.spatialInfoType in patchmaker.SPATIAL_INFO_TYPES:
+                    spatialInfo = spatialcontext.get_generic_spatial_info(imageData, self.spatialInfoType)
+                elif self.spatialInfoType in spatialcontext.SPATIAL_INFO_TYPES:
                     raise Exception("No spatial info provided")
             spatialInfo = numpy.asarray(spatialInfo, numpy.float) * self.spatialWeight
 
@@ -225,6 +225,10 @@ class SAPS(object):
         patchesMask = get_min_max_mask(imageData, minValue=self.minValue, maxValue=self.maxValue)
         labelsIndices = None
         if queryMaskDict is not None:
+            if not isinstance(queryMaskDict, dict):
+                # bit hacky - make into a dictionary
+                queryMaskDict = {1: queryMaskDict}
+
             if patchesMask is not None:
                 patchesMask = logical_and(union_masks(queryMaskDict.values()), patchesMask)
             else:
@@ -238,7 +242,7 @@ class SAPS(object):
                 queryMask = patchesMask
                 spatialRegionIndex = None
                 if overallMask is not None and self.boundaryDilation > 0:
-                    queryMask = mask.dilate_mask(queryMask, self.boundaryDilation)
+                    queryMask = dilate_mask(queryMask, self.boundaryDilation)
                     queryMask = logical_and(overallMask, queryMask)
 
             # get labelIndices

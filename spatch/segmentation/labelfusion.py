@@ -1,7 +1,7 @@
 """
 Created on 3 Dec 2012
 
-@author: zw606
+@author: Zehan Wang
 """
 from __future__ import division
 import numpy

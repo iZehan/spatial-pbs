@@ -1,7 +1,7 @@
 """
 Created on 29/04/13
 
-@author: zw606
+@author: Zehan Wang
 """
 from __future__ import division
 import glob

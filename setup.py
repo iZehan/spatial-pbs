@@ -1,7 +1,10 @@
-#! /usr/bin/env python
-#
-# Copyright (C) Zehan Wang 2014
-"""Library for patch-based segmentation with spatial context. (Spatially Aware Patch-based Segmentation)"""
+"""
+Created on 21 May 2014
+
+@author: Zehan Wang
+Copyright (C) Zehan Wang 2011-2014 and onwards
+Library for patch-based segmentation with spatial context. (Spatially Aware Patch-based Segmentation)
+"""
 
 import sys
 import os
