@@ -81,6 +81,11 @@ def refinement_saps_segment(trainingSet, targetFile, imagesPath, labelsPath, pat
 def run_leave_one_out(imagesPath, labelsPath, savePath, patchSize=7, k=15, spatialWeight=400,
                       prevResultsPath=None, dtLabels=None, preDtErosion=None, refinementSize=2,
                       numProcessors=8, fileName="*.nii.gz"):
+    """
+        Assumes images are in common template space,
+        otherwise registration (not performed here) will be required for each target image
+    """
+
     files = glob.glob(join(imagesPath, fileName))
     print "Number of files found:", len(files)
     dataset = [basename(x) for x in files]
