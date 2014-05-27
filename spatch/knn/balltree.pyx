@@ -199,6 +199,8 @@ from libc.stdlib cimport malloc, free, realloc
 from libc.math cimport fabs, pow, sqrt
 
 
+__all__ = ["BallTree"]
+
 ######################################################################
 # global definitions
 #

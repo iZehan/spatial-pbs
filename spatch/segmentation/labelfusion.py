@@ -9,6 +9,8 @@ import numpy
 # added constant to stop divide by 0 error
 from spatch.image.intensity import rescale_data
 
+__all__ = ["non_local_means_presq", "non_local_means"]
+
 EPSILON = 0.0001
 
 

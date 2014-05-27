@@ -10,6 +10,9 @@ import numpy
 from scipy.ndimage import gaussian_filter
 from skimage.transform import resize
 
+__all__ = ["resample_data_to_shape", "interpolate_to_shape",
+           "crop_image", "zero_out_boundary", "image_boundary_expand"]
+
 
 def resample_data_to_shape(data, targetShape, interpolationType, isLabels=False):
     if data.shape == targetShape:

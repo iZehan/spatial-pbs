@@ -5,36 +5,25 @@ Created on 17 Dec 2012
 """
 from __future__ import division
 import os
-import cPickle as pickle
 import math
 
 from numpy.lib.stride_tricks import as_strided as ast
 from numpy.core.umath import logical_and
 import numpy
-from utilities.io import auto_make_dir, open_image, get_voxel_size, construct_datafiles_list
-from utilities.misc import auto_non_background_labels
+from spatch.utilities.io import open_image, get_voxel_size
+from spatch.utilities.misc import auto_non_background_labels
 
 import mask
 from transform import interpolate_to_shape
 
-from spatialcontext import multi_label_edt_dict, region_dict_from_dt_dict, get_dt_spatial_context_dict, \
-    EDT, GDT, dist_to_y_2d_centre_spatial_info, dist_to_centre_spatial_info, get_coordinates, get_generic_spatial_info
-from spatch.image.resize import zero_out_boundary, image_boundary_expand
+from spatialcontext import region_dict_from_dt_dict, get_dt_spatial_context_dict, \
+    EDT, GDT, GENERIC_SPATIAL_INFO_TYPES, dist_to_y_2d_centre_spatial_info, dist_to_centre_spatial_info, \
+    get_coordinates, get_generic_spatial_info
+from transform import zero_out_boundary, image_boundary_expand
 from intensity import rescale_data
 
 
-COORDINATES = "coordinates"
-NORMALISED_COORDINATES = "normalised-coordinates"
-COORDINATES_2D = "coordinates-2d"
-NORMALISED_COORDINATES_2D = "normalised-coordinates-2d"
-DIST_CENTRE = "dist-to-centre"
-NORMALISED_DIST_CENTRE = "normalised-dist-to-centre"
-NORMALISED_DIST_CENTRE_MASS = "normalised-dist-to-centre-mass"
-NORMALISED_COORDINATES_CENTRE_MASS = "normalised-coordinates-to-centre-mass"
-SPATIAL_INFO_TYPES = [EDT, GDT, COORDINATES, NORMALISED_COORDINATES, DIST_CENTRE, NORMALISED_DIST_CENTRE,
-                      NORMALISED_DIST_CENTRE_MASS, NORMALISED_COORDINATES_CENTRE_MASS]
-GENERIC_SPATIAL_INFO_TYPES = [COORDINATES, NORMALISED_COORDINATES, DIST_CENTRE, NORMALISED_DIST_CENTRE,
-                              NORMALISED_DIST_CENTRE_MASS, NORMALISED_COORDINATES_CENTRE_MASS]
+__all__ = ["PatchMaker", "DataSetPatchMaker", "get_patches"]
 
 
 class PatchMaker(object):
@@ -304,105 +293,6 @@ class PatchMaker(object):
                                            maskData=maskData, minValue=minValue, maxValue=maxValue)
 
 
-class DataSetPatchMaker(object):
-    def __init__(self, imagesPath, labelsPath, imageExpand, nameContains="*.nii.gz", specificLabels=None,
-                 boundaryLabels=None, preEdtErosion=0):
-        imageLabelPairs = construct_datafiles_list(imagesPath, labelsPath, nameContains)
-        self.dataset = [PatchMaker(imagePath, labelPath, imageExpand,
-                                   specificLabels=specificLabels, boundaryLabels=boundaryLabels)
-                        for imagePath, labelPath in imageLabelPairs]
-        self.imageExpand = imageExpand
-        self.preEdtErosion = preEdtErosion
-
-    def save_patch_dicts(self, patchSize, savePath, minValue=None, maxValue=None):
-        for x in self.dataset:
-            pickle.dump(x.get_patch_dict(patchSize, minValue=minValue, maxValue=maxValue),
-                        open(savePath + x.fileName + ".dict", "w"), protocol=2)
-
-    def save_coordinate_patch_dicts(self, patchSize, savePath, minValue=None, maxValue=None, normaliseSpatial=False):
-        for x in self.dataset:
-            pickle.dump(x.get_coordinate_patch_dict(patchSize, minValue=minValue, maxValue=maxValue,
-                                                    normaliseSpatial=normaliseSpatial),
-                        open(savePath + x.fileName + ".dict", "w"), protocol=2)
-
-    def save_centre_dist_patch_dicts(self, patchSize, savePath, minValue=None, maxValue=None,
-                                     normaliseSpatial=False):
-        for x in self.dataset:
-            patchDict = x.get_centre_dist_patch_dict(patchSize, minValue=minValue, maxValue=maxValue,
-                                                     normaliseSpatial=normaliseSpatial)
-            pickle.dump(patchDict, open(savePath + x.fileName + ".dict", "w"), protocol=2)
-
-    def save_y_centre_dist_patch_dicts(self, patchSize, savePath, minValue=None, maxValue=None,
-                                       normaliseSpatial=False):
-        for x in self.dataset:
-            patchDict = x.get_y_centre_dist_patch_dict(patchSize, minValue=minValue, maxValue=maxValue,
-                                                       normaliseSpatial=normaliseSpatial)
-            pickle.dump(patchDict, open(savePath + x.fileName + ".dict", "w"), protocol=2)
-
-    def save_boundary_patch_dicts(self, patchSize, savePath, boundaryDilation,
-                                  minValue=None, maxValue=None):
-        for x in self.dataset:
-            pickle.dump(x.get_boundary_patch_dict(patchSize, boundaryDilation, minValue=minValue, maxValue=maxValue),
-                        open(savePath + x.fileName + ".dict", "w"), protocol=2)
-
-    def save_edt_regional_patch_dicts(self, patchSize, savePath, edtLabelsPath,
-                                      edtLabels=None, minValue=None, maxValue=None):
-        for x in self.dataset:
-            labelsData = open_image(edtLabelsPath + x.fileName)
-            voxelSpacing = get_voxel_size(edtLabelsPath + x.fileName)
-            edtDistances = multi_label_edt_dict(labelsData, specificLabels=edtLabels, voxelSpacing=voxelSpacing)
-            regionMasks = region_dict_from_dt_dict(edtDistances).values()
-
-            for i in range(len(regionMasks)):
-                auto_make_dir(savePath + str(i) + "/")
-                pickle.dump(x.get_patch_dict(patchSize, maskData=regionMasks[i], minValue=minValue, maxValue=maxValue),
-                            open(savePath + str(i) + "/" + x.fileName + ".dict", "w"), protocol=2)
-
-    def save_edt_regional_boundary_patch_dicts(self, patchSize, savePath, boundaryDilation, edtLabelsPath,
-                                               edtLabels=None, minValue=None, maxValue=None):
-        for x in self.dataset:
-            labelsData = open_image(edtLabelsPath + x.fileName)
-            voxelSpacing = get_voxel_size(edtLabelsPath + x.fileName)
-            edtDistances = multi_label_edt_dict(labelsData, specificLabels=edtLabels, voxelSpacing=voxelSpacing)
-            regionMasks = region_dict_from_dt_dict(edtDistances).values()
-
-            for i in range(len(regionMasks)):
-                auto_make_dir(savePath + str(i) + "/")
-                pickle.dump(x.get_boundary_patch_dict(patchSize, boundaryDilation,
-                                                      maskData=regionMasks[i], minValue=minValue, maxValue=maxValue),
-                            open(savePath + str(i) + "/" + x.fileName + ".dict", "w"), protocol=2)
-
-    def save_edt_regional_boundary_spatial_patch_dicts(self, patchSize, savePath, boundaryDilation,
-                                                       edtLabelsPath,
-                                                       edtLabels=None, spatialWeight=1, regionalOverlap=0,
-                                                       clipLabelEdt=False, minValue=None, maxValue=None,
-                                                       clipPatchSize=None):
-        labelClipping = 0
-        if clipLabelEdt:
-            if clipPatchSize is None:
-                labelClipping = int(math.floor(patchSize / 2))
-            else:
-                labelClipping = int(math.floor(clipPatchSize / 2))
-            print "Label Clipping enabled - clipping boundary:", labelClipping
-
-        for x in self.dataset:
-            labelsData = open_image(edtLabelsPath + x.fileName)
-            voxelSpacing = get_voxel_size(edtLabelsPath + x.fileName)
-            edtDistances = multi_label_edt_dict(labelsData, specificLabels=edtLabels, voxelSpacing=voxelSpacing,
-                                                imageBoundaryClipping=labelClipping)
-            regionMasks = region_dict_from_dt_dict(edtDistances).values()
-            edtResults = edtDistances.values()
-
-            if spatialWeight != 1:
-                edtResults *= spatialWeight
-            for i, regionMask in enumerate(regionMasks):
-                auto_make_dir(savePath + str(i) + "/")
-                pickle.dump(x.get_boundary_spatial_patch_dict(patchSize, edtResults, boundaryDilation,
-                                                              maskData=regionMask, minValue=minValue,
-                                                              maxValue=maxValue),
-                            open(savePath + str(i) + "/" + x.fileName + ".dict", "w"), protocol=2)
-
-
 def patch_view(data, patchSize=(3, 3, 3)):
     """Returns a view of overlapping patches from the data"""
 
@@ -440,7 +330,6 @@ def get_patches(imageData, patchSize, maskData=None, spatialData=None, separateS
                                          spatialData=spatialData, verbose=verbose, separateSpatial=separateSpatial)
     else:
         #TODO may need to trim maskData and spatial data if shape not exact multiple of patchSize
-
         return get_patches_from_ast_data(non_overlapping_patch_view(imageData, patchSize), maskData=maskData,
                                          spatialData=spatialData, verbose=verbose, separateSpatial=separateSpatial)
 
@@ -492,138 +381,3 @@ def get_patches_from_ast_data(imageData, maskData=None, spatialData=None, verbos
     if verbose:
         print "Number of patches created:", numPatches
     return patches
-
-
-if __name__ == '__main__':
-    from argparse import ArgumentParser
-
-    parser = ArgumentParser()
-    parser.add_argument("--sw", dest="spatialWeight", type=float, default=0,
-                        help="Set Location Weighting")
-    parser.add_argument("--dilation", dest="dilation", type=int, default=2,
-                        help="Set Mask dilation for area to build tree in")
-    parser.add_argument("--preEdtErosion", dest="preEdtErosion", type=int, default=0,
-                        help="Erosion to perform on labels prior to EDT operations")
-    parser.add_argument("--regionalOverlap", dest="regionalOverlap", type=int, default=0,
-                        help="Amount of overlap between regions")
-
-    parser.add_argument("--patchSize", dest="patchSize", type=int, default=7, nargs="+",
-                        help="Set the patch size to use")
-    parser.add_argument("--np", dest="numProcessors", type=int, default=4,
-                        help="Set the number of processors to use")
-
-    parser.add_argument("--dp", dest="dataPath",
-                        help="Set the data path")
-    parser.add_argument("--lp", dest="labelsPath",
-                        help="Set the labels path")
-    parser.add_argument("--edtLP", dest="edtLabelsPath",
-                        help="Set the labels path")
-    parser.add_argument("--sp", dest="savePath",
-                        help="Set the save path")
-    parser.add_argument("--tempFolder", dest="tempFolder",
-                        help="Set temp folder path")
-    parser.add_argument("--imageExpand", dest="imageExpand", default=False, action="store_true",
-                        help="Expands image boundary by 1 in each direction on the image "
-                             "(if image very small may be useful)")
-    parser.add_argument("--ski10Config", dest="ski10Config", default=False, action="store_true",
-                        help="Set up for ski10 config with bone labels for EDT")
-    parser.add_argument("--ski10Config2", dest="ski10Config2", default=False, action="store_true",
-                        help="Set up for ski10 config with all labels for EDT")
-    parser.add_argument("--abdominalConfig", dest="abdominalConfig", default=False, action="store_true",
-                        help="Set up for ski10 config")
-
-    parser.add_argument("--boundaryPatches", dest="boundaryPatches", default=False, action="store_true",
-                        help="Create boundary patches")
-    parser.add_argument("--edtRegional", dest="edtRegional", default=False, action="store_true",
-                        help="Create edt regional patches")
-    parser.add_argument("--specificLabels", dest="specificLabels", default=None, type=int, nargs="+",
-                        help="set any specific labels for creating patches")
-    parser.add_argument("--boundaryLabels", dest="boundaryLabels", default=None, type=int, nargs="+",
-                        help="set any specific labels for creating patches")
-    parser.add_argument("--edtLabels", dest="edtLabels", default=None, type=int, nargs="+",
-                        help="Create edt regional patches")
-    parser.add_argument("--clipLabelEdt", dest="clipLabelEdt", default=False, action="store_true",
-                        help="Clip the label data boundary for edt according to patch size "
-                             "- reflects usage during patch search")
-    parser.add_argument("--minValue", dest="minValue", default=None, type=float,
-                        help="Set a minimum value to include in data")
-    parser.add_argument("--maxValue", dest="maxValue", default=None, type=float,
-                        help="Set a maximum value to include in data")
-    parser.add_argument("--addCoordinates", dest="addCoordinates", default=False, action="store_true",
-                        help="Set a maximum value to include in data")
-    parser.add_argument("--addDistToCentre", dest="addDistToCentre", default=False, action="store_true",
-                        help="Set a maximum value to include in data")
-    parser.add_argument("--addYDistToCentre", dest="addYDistToCentre", default=False, action="store_true",
-                        help="Set a maximum value to include in data")
-    parser.add_argument("--clipPatchSize", dest="clipPatchSize", default=None, type=int,
-                        help="Create edt regional patches")
-    parser.add_argument("--normaliseSpatial", dest="normaliseSpatial", default=False, action="store_true",
-                        help="normalise spatial info to be between 0 and 1")
-
-    options = parser.parse_args()
-
-    builder = DataSetPatchMaker(options.dataPath, options.labelsPath, options.imageExpand,
-                                specificLabels=options.specificLabels, boundaryLabels=options.boundaryLabels,
-                                preEdtErosion=options.preEdtErosion)
-    if options.ski10Config:
-        edtLabels = [1, 3]
-    elif options.ski10Config2:
-        edtLabels = [1, 2, 3, 4]
-    elif options.abdominalConfig:
-        edtLabels = [3, 4, 7, 8]
-    else:
-        edtLabels = options.edtLabels
-
-    print "EDT labels:", edtLabels
-
-    auto_make_dir(options.savePath)
-
-    if not isinstance(options.patchSize, int):
-        options.patchSize = tuple(options.patchSize)
-        if len(options.patchSize) == 1:
-            options.patchSize = options.patchSize[0]
-
-    print "Patch size:", options.patchSize
-
-    if options.boundaryPatches:
-        if options.edtRegional:
-            if options.spatialWeight > 0:
-                builder.save_edt_regional_boundary_spatial_patch_dicts(options.patchSize, options.savePath,
-                                                                       options.dilation,
-                                                                       options.edtLabelsPath, edtLabels=edtLabels,
-                                                                       spatialWeight=options.spatialWeight,
-                                                                       regionalOverlap=options.regionalOverlap,
-                                                                       clipLabelEdt=options.clipLabelEdt,
-                                                                       minValue=options.minValue,
-                                                                       maxValue=options.maxValue,
-                                                                       clipPatchSize=options.clipPatchSize)
-            else:
-                builder.save_edt_regional_boundary_patch_dicts(options.patchSize, options.savePath, options.dilation,
-                                                               options.edtLabelsPath, edtLabels=edtLabels,
-                                                               minValue=options.minValue, maxValue=options.maxValue)
-        else:
-            builder.save_boundary_patch_dicts(options.patchSize, options.savePath, options.dilation,
-                                              minValue=options.minValue, maxValue=options.maxValue)
-    else:
-        if options.edtRegional:
-            builder.save_edt_regional_patch_dicts(options.patchSize, options.savePath, options.edtLabelsPath,
-                                                  edtLabels=edtLabels, minValue=options.minValue,
-                                                  maxValue=options.maxValue)
-        elif options.addCoordinates:
-            builder.save_coordinate_patch_dicts(options.patchSize, options.savePath,
-                                                minValue=options.minValue, maxValue=options.maxValue,
-                                                normaliseSpatial=options.normaliseSpatial)
-        elif options.addDistToCentre:
-            print "Building with CentreDist"
-            builder.save_centre_dist_patch_dicts(options.patchSize, options.savePath,
-                                                 minValue=options.minValue, maxValue=options.maxValue,
-                                                 normaliseSpatial=options.normaliseSpatial)
-        elif options.addYDistToCentre:
-            print "Building with YCentreDist"
-            builder.save_y_centre_dist_patch_dicts(options.patchSize, options.savePath,
-                                                   minValue=options.minValue, maxValue=options.maxValue,
-                                                   normaliseSpatial=options.normaliseSpatial)
-        else:
-            builder.save_patch_dicts(options.patchSize, options.savePath,
-                                     minValue=options.minValue, maxValue=options.maxValue)
-    print "Done!"

@@ -1,26 +1,27 @@
 """
 Created on 6 Dec 2012
 
-@author: zw606
+@author: Zehan Wang
 """
 from __future__ import division
-from abc import abstractmethod
-import cPickle as pickle
 import os
 import math
 from os.path import join
 
 import numpy
-from nearestneighbours.balltree import BallTree
 from sklearn.neighbors import BallTree as ScikitBallTree
 
+from balltree import BallTree
+
 from spatch.image.patchmaker import PatchMaker, EDT
+
 
 #import pyflann
 
 CUSTOM_BALL_TREE = "custom-ball-tree"
 SK_DUAL_TREE = "scikit-ball-tree-dual"
 
+__all__ = ["ImagePatchSearcher"]
 
 def choose_leaf_size(numItems):
     multiplier = 14
@@ -77,7 +78,7 @@ def query_dual_tree(tree, queryData, k):
     return distances ** 2, indices
 
 
-class Knn_Searcher(object):
+class KnnSearcher(object):
 
     def __init__(self, knnStructureType, maxData=None):
         self.maxData = maxData
@@ -97,97 +98,6 @@ class Knn_Searcher(object):
         return self.query_method(structure, queryData, k)
 
 
-class AbstractSearcher(object):
-    """
-        performs block queries on one atlas at a time rather than all atlases
-        
-    """
-
-    def __init__(self, files, resourceFolders, spatialMultiplier=None, numSpatialDims=0):
-        self.resourceFolders = resourceFolders
-        self.numSpatialDims = numSpatialDims
-        self.spatialMultiplier = spatialMultiplier
-        self.check_resources_exist(files)
-        self.patchSize = None
-        self.get_patch_size(files)
-        print "Detecting Patch Size as:", self.patchSize
-
-    @abstractmethod
-    def check_resources_exist(self, files):
-        pass
-
-    @abstractmethod
-    def get_patch_size(self, files):
-        pass
-
-    @abstractmethod
-    def query(self, atlas, patches, labelsIndices, k):
-        """
-            patches is a numpy array of vectorized patches (2D numpy array)
-            labelsIndices is a dictionary of {label: numpy array([indices in patches])}
-        """
-
-
-class BallTreeLookUp(AbstractSearcher):
-    """
-        performs block queries on one atlas at a time rather than all atlases
-        resourcesFolder contains python dictionaries (*.dict) files of {label: patches}
-    """
-
-    def check_resources_exist(self, files):
-        for x in files:
-            if not os.path.exists(self.resourceFolders + x + ".dict"):
-                raise Exception("Resource does not exists:" + self.resourceFolders + x + ".dict")
-
-    def get_patch_size(self, files):
-        if self.patchSize is None:
-            with open(self.resourceFolders + "/" + files[0] + ".dict", "r") as data:
-                tempDict = pickle.load(data)
-                if "patchSize" in tempDict:
-                    self.patchSize = tempDict["patchSize"]
-                else:
-                    self.patchSize = int(
-                        round(math.pow((numpy.asarray(tempDict[0]).shape[1] - self.numSpatialDims), 1 / 3)))
-        return self.patchSize
-
-    def query(self, atlas, patches, labelsIndices, k):
-        results = dict()
-        with open(self.resourceFolders + "/" + atlas + ".dict", "r") as data:
-            tempDict = pickle.load(data)
-        for label in tempDict:
-            if labelsIndices is not None and label in labelsIndices:
-                if len(tempDict[label]) > 0:
-                    try:
-                        data = modify_spatial_weight(numpy.asarray(tempDict[label]), self.spatialMultiplier,
-                                                     self.numSpatialDims)
-                        # TODO remove randomising later
-                        #data = random_sample(data)
-                        tree = BallTree(data, choose_leaf_size(len(data)))
-                        try:
-                            results[label] = self.querier(tree, patches[labelsIndices[label]], k)
-                        except TypeError:
-                            results[label] = self.querier(tree, patches, k)
-                    except IndexError:
-                        results[label] = [[float("inf")] for _ in xrange(len(labelsIndices[label]))]
-                else:
-                    results[label] = [[float("inf")] for _ in xrange(len(labelsIndices[label]))]
-            elif label != "patchSize" and len(tempDict[label]) > 0:
-                try:
-                    data = modify_spatial_weight(numpy.asarray(tempDict[label]),
-                                                 self.spatialMultiplier, self.numSpatialDims)
-                    # TODO remove randomising later
-                    #data = random_sample(data)
-                    tree = BallTree(data, choose_leaf_size(len(data)))
-                    results[label] = self.querier(tree, patches, k)
-                except IndexError:
-                    results[label] = [[float("inf")] for _ in xrange(len(patches))]
-        return results
-
-    def querier(self, tree, patches, k):
-        k = numpy.int32(k)
-        return tree.query_many(patches, k)[0]
-
-
 class ImagePatchSearcher(object):
     def __init__(self, imagesFolder, labelsFolder, patchSize, spatialWeight=None, minValue=None, maxValue=None,
                  spatialInfoType=EDT, imageExpand=True, dtLabelsFolder=None, gdtImagesFolder=None,
@@ -202,7 +112,7 @@ class ImagePatchSearcher(object):
         self.check_resources_exist()
         self.is2D = is2D
         self.rescaleIntensities = rescaleIntensities
-        self.knnSearcher = Knn_Searcher(knnStructureType)
+        self.knnSearcher = KnnSearcher(knnStructureType)
 
     def set_images_labels_paths(self, imagesFolder, labelsFolder, dtLabelsPath=None, gdtImagesFolder=None):
         self.imagesFolder = imagesFolder
@@ -294,10 +204,10 @@ class ImagePatchSearcher(object):
         return results
 
 
-def random_sample(dataset, percentage=0.5):
-    totalItems = dataset.shape[0]
-    numItems = int(round(totalItems * percentage))
-    return dataset[numpy.random.choice(totalItems, numItems, replace=False)]
+# def random_sample(dataset, percentage=0.5):
+#     totalItems = dataset.shape[0]
+#     numItems = int(round(totalItems * percentage))
+#     return dataset[numpy.random.choice(totalItems, numItems, replace=False)]
 
 # class FlannLookUp(PatchDictionaryLookUp):
 #     """
@@ -337,21 +247,3 @@ def random_sample(dataset, percentage=0.5):
 #             return flann.nn_index(queryPatches, k)[1]
 #         except AssertionError:
 #             return flann.nn_index(queryPatches, len(flann._FLANN__curindex_data))[1]
-
-
-def modify_spatial_weight(data, multiplier, numSpatialDimensions):
-    if numSpatialDimensions is not None:
-        if multiplier == 0:
-            data = data[:, :-numSpatialDimensions]
-        else:
-            data[:, -numSpatialDimensions:] *= multiplier
-    return data
-
-
-def modify_tree_spatial_weight(tree, multiplier, numSpatialDimensions):
-    data = tree.data
-    if multiplier == 0:
-        data = tree.data[:, :-numSpatialDimensions]
-    else:
-        data[:, -numSpatialDimensions:] *= multiplier
-    return BallTree(data, choose_leaf_size(len(data)), tree.__getstate__()[4])

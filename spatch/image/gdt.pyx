@@ -11,6 +11,8 @@ ctypedef numpy.int16_t SHORT
 ctypedef numpy.uint8_t BOOL
 
 
+__all__= ["geodesic_distance_transform"]
+
 def geodesic_distance_transform(binaryImage, imageMagnitudes, numIterations=3, spacing=(1.0, 1.0, 1.0),
                                 includeEDT=True):
     """

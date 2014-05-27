@@ -4,21 +4,36 @@ Created on 13/01/14
 @author: zw606
 """
 
-from externals.joblib import Parallel, delayed
+from sklearn.externals.joblib import Parallel, delayed
 import numpy
 from numpy.core.umath import logical_not
-from scipy.ndimage import distance_transform_edt, gaussian_gradient_magnitude
+from scipy.ndimage import distance_transform_edt, gaussian_gradient_magnitude, center_of_mass
 from utilities.misc import auto_non_background_labels
 
-from spatch.image.gdt import geodesic_distance_transform
-from spatch.image import mask
-from spatch.image.mask import erode_mask, get_bounding_box, dilate_mask
-from spatch.image.resize import zero_out_boundary, image_boundary_expand
-from spatch.image.transform import interpolate_to_shape, resample_data_to_shape
+from gdt import geodesic_distance_transform
+from mask import erode_mask, get_bounding_box, dilate_mask
+from transform import interpolate_to_shape, resample_data_to_shape, zero_out_boundary, image_boundary_expand
 
 
 EDT = "edt"
 GDT = "gdt"
+COORDINATES = "coordinates"
+NORMALISED_COORDINATES = "normalised-coordinates"
+COORDINATES_2D = "coordinates-2d"
+NORMALISED_COORDINATES_2D = "normalised-coordinates-2d"
+DIST_CENTRE = "dist-to-centre"
+NORMALISED_DIST_CENTRE = "normalised-dist-to-centre"
+NORMALISED_DIST_CENTRE_MASS = "normalised-dist-to-centre-mass"
+NORMALISED_COORDINATES_CENTRE_MASS = "normalised-coordinates-to-centre-mass"
+SPATIAL_INFO_TYPES = [EDT, GDT, COORDINATES, NORMALISED_COORDINATES, DIST_CENTRE, NORMALISED_DIST_CENTRE,
+                      NORMALISED_DIST_CENTRE_MASS, NORMALISED_COORDINATES_CENTRE_MASS]
+GENERIC_SPATIAL_INFO_TYPES = [COORDINATES, NORMALISED_COORDINATES, DIST_CENTRE, NORMALISED_DIST_CENTRE,
+                              NORMALISED_DIST_CENTRE_MASS, NORMALISED_COORDINATES_CENTRE_MASS]
+
+
+__all__ = ["edt", "gdt", "eroded_gdt", "eroded_gdt", "multi_label_edt", "multi_label_edt_dict",
+           "multi_label_gdt", "multi_label_gdt_dict", "get_generic_spatial_info", "get_coordinates",
+           "get_coordinates_from_data_shape", "get_dist_to_reference_point"]
 
 
 def edt(binaryData, voxelSpacing=1, subtractInside=True, boundingMask=None):
@@ -54,7 +69,7 @@ def eroded_edt(binaryData, erosion, voxelSpacing=1, is2D=False, subtractInside=T
     """
         returns edt results for labels using scipy.ndimage.morphology.distance_transform_edt instead of irtk
     """
-    tempData = mask.erode_mask(binaryData, erosion, is2D=is2D)
+    tempData = erode_mask(binaryData, erosion, is2D=is2D)
     return edt(tempData, voxelSpacing=voxelSpacing, subtractInside=subtractInside, boundingMask=boundingMask)
 
 
@@ -238,12 +253,12 @@ def region_dict_from_dt_dict(dtResultsDict, regionalOverlap=None, specificRegion
         regionalMaskDict = dict((regionIndices[i], nearestRegions == i) for i in xrange(len(regionIndices)))
         if regionalOverlap:
             for index in regionalMaskDict:
-                regionalMaskDict[index] = mask.dilate_mask(regionalMaskDict[index], regionalOverlap, is2D=is2D)
+                regionalMaskDict[index] = dilate_mask(regionalMaskDict[index], regionalOverlap, is2D=is2D)
         return regionalMaskDict
     else:
         regionalMask = nearestRegions == regionIndices.index(specificRegionIndex)
         if regionalOverlap:
-            regionalMask = mask.dilate_mask(regionalMask, regionalOverlap, is2D=is2D)
+            regionalMask = dilate_mask(regionalMask, regionalOverlap, is2D=is2D)
         return regionalMask
 
 
@@ -254,7 +269,7 @@ def regions_from_dt_results(edtResults, regionalOverlap=0, is2D=False):
     nearestRegions = numpy.argmin(edtResults, axis=0)
     regions = [nearestRegions == i for i in xrange(len(edtResults))]
     if regionalOverlap > 0:
-        regions = [mask.dilate_mask(region, regionalOverlap, is2D=is2D) for region in regions]
+        regions = [dilate_mask(region, regionalOverlap, is2D=is2D) for region in regions]
     return regions
 
 

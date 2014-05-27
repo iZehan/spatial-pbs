@@ -12,7 +12,10 @@ import math
 import multiprocessing
 import numpy
 import time
-from utilities.misc import short_format_time
+from misc import short_format_time
+
+
+__all__ = ["AbstractConsumer", "multi_process_list", "multi_process_list_with_consumer", "multi_process_numpy"]
 
 
 def split_into_sublist(dataList, numSplits):
@@ -210,7 +213,7 @@ def multi_process_list_with_ids(data, ids, method, numProcessors, *args):
 
 def multi_process_numpy(data, method, numProcessors, *args):
     """
-        same as multi_process_list but uses a numpy array and is significantly faster
+        same as multi_process_list but uses a numpy array, maybe faster
     """
     if numProcessors > len(data):
         numProcessors = len(data)

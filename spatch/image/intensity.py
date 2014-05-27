@@ -8,9 +8,12 @@ import glob
 from os.path import basename, isdir, join
 
 import numpy
-from utilities.io import open_image, get_affine, save_3d_data
 from mask import get_min_max_mask
-from utilities.paralleling import multi_process_list
+from spatch.utilities.io import open_image, get_affine, save_3d_data
+from spatch.utilities.paralleling import multi_process_list
+
+
+__all__ = ["rescale_data", "rescale_file", "rescale_many_files", "threshold_image", "rescale_folder"]
 
 
 def rescale_data(imageData, rescaleMin=0, rescaleMax=100, minDataValue=None, maxDataValue=None, maskData=None,
@@ -34,10 +37,10 @@ def rescale_data(imageData, rescaleMin=0, rescaleMax=100, minDataValue=None, max
 
     if maskData is not None and maskedRegionOnly:
         imageData[maskData] -= (imageMin - rescaleMin)
-        imageData[maskData] *= (scalingRange/imageRange)
+        imageData[maskData] *= (scalingRange / imageRange)
     else:
         imageData -= (imageMin - rescaleMin)
-        imageData *= (scalingRange/imageRange)
+        imageData *= (scalingRange / imageRange)
 
     return imageData
 

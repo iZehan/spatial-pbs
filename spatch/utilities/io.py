@@ -14,6 +14,10 @@ import os
 import cPickle as pickle
 
 
+__all__ = ["open_image", "save_3d_data", "save_3d_labels_data", "auto_make_dir",
+           "get_data_shape", "get_voxel_size", "get_affine", "get_file_names", "get_sub_name"]
+
+
 def construct_datafiles_list(dataPath, labelsPath, nameContains="*.nii.gz"):
     """
         Return list of files in (data, label) pairing
@@ -88,11 +92,6 @@ def save_3d_labels_data(data, affine, filePath):
         print "data shape:", data.shape
         raise
     return
-
-
-def save_multi_folder(dataset, affine, folders, filename):
-    for i in xrange(len(dataset)):
-        save_3d_data(dataset[i], affine, folders[i] + filename)
 
 
 def save_tree(tree, path):

@@ -11,16 +11,19 @@ from collections import deque
 
 import numpy
 from numpy.core.umath import logical_and
-from labelfusion.patchbased import non_local_means_presq, separate_gaussians_presq
-from segment.helper import arrange_results_by_location, DictResultsSorter, SeparableDictSorter
-from nearestneighbours.searcher import ImagePatchSearcher, SeparablePatchSearcher
-from utilities.paralleling import multi_process_list_with_consumer
+from spatch.image.transform import zero_out_boundary
+
+from labelfusion import non_local_means_presq
+from helper import arrange_results_by_location, DictResultsSorter
 
 from spatch.image import patchmaker, mask
-from spatch.image.resize import zero_out_boundary
 from spatch.image.mask import union_masks, get_min_max_mask
 from spatch.image.patchmaker import EDT
+from spatch.knn.searcher import ImagePatchSearcher
+from spatch.utilities.paralleling import multi_process_list_with_consumer
 
+
+__all__ = ["SAPS", "RegionalSAPS"]
 
 # Change this to impose hard limit for memory consuming tasks
 MAX_JOBS = 1
@@ -65,7 +68,7 @@ class RegionalSAPS(object):
                          boundaryDilation=boundaryDilation, boundaryClipping=boundaryClipping,
                          spatialInfoType=spatialInfoType, dtLabelsFolder=dtLabelsFolder,
                          gdtImagesFolder=gdtImagesFolder,
-                         imageExpand=imageExpand, is2D=is2D, separableGaussians=separableGaussians)
+                         imageExpand=imageExpand, is2D=is2D)
         self.spatialInfoType = spatialInfoType
 
     def set_atlas_dictionary(self, regionalAtlasDict):
@@ -145,8 +148,7 @@ class SAPS(object):
 
     def __init__(self, imagesFolder, labelsFolder, patchSize, spatialWeight=None, spatialInfoType=None,
                  dtLabelsFolder=None, gdtImagesFolder=None, boundaryDilation=2, boundaryClipping=0,
-                 minValue=None, maxValue=None, imageExpand=True, is2D=False, rescaleIntensities=False,
-                 separableGaussians=False):
+                 minValue=None, maxValue=None, imageExpand=True, is2D=False, rescaleIntensities=False):
         """
         @param imagesFolder:
         @param labelsFolder:
@@ -157,17 +159,14 @@ class SAPS(object):
         @param spatialInfoType: type of spatial information to use
         @param imageExpand: expand atlas images by 1 voxel around borders (by interpolation) or not
         """
-        if separableGaussians:
-            imageSearcher = SeparablePatchSearcher
-        else:
-            imageSearcher = ImagePatchSearcher
+
+        imageSearcher = ImagePatchSearcher
         self.searchHandler = imageSearcher(imagesFolder, labelsFolder, patchSize,
                                            spatialWeight=spatialWeight, spatialInfoType=spatialInfoType,
                                            minValue=minValue, maxValue=maxValue, imageExpand=imageExpand,
                                            dtLabelsFolder=dtLabelsFolder, gdtImagesFolder=gdtImagesFolder,
                                            is2D=is2D,
                                            rescaleIntensities=rescaleIntensities)
-        self.separableGaussians = separableGaussians
         self.is2D = is2D
         if isinstance(patchSize, int):
             patchSize = [patchSize] * 3
@@ -268,12 +267,9 @@ class SAPS(object):
         print "Num Query Locations:", numQueryLocations
         # create patches
         print "Creating patches..."
-        patches = patchmaker.get_patches(imageData, self.patchSize, maskData=patchesMask, spatialData=spatialInfo,
-                                         separateSpatial=self.separableGaussians)
-        if self.separableGaussians and spatialInfo is not None:
-            consumerObj = SeparableDictSorter(k, separate_gaussians_presq, labelsIndices, numQueryLocations)
-        else:
-            consumerObj = DictResultsSorter(k, non_local_means_presq, labelsIndices, numQueryLocations)
+        patches = patchmaker.get_patches(imageData, self.patchSize, maskData=patchesMask, spatialData=spatialInfo)
+
+        consumerObj = DictResultsSorter(k, non_local_means_presq, labelsIndices, numQueryLocations)
 
         print "Searching..."
         results = multi_process_list_with_consumer(atlases, self.query_worker, consumerObj,
