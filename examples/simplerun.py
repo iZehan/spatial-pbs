@@ -2,6 +2,11 @@
 Created on 05/12/13
 
 @author: zw606
+
+simple example
+assumes images and labels files are named the same but in different folders
+(one folder for images, one folder for labels)
+
 """
 import glob
 from os.path import join, basename
@@ -25,11 +30,11 @@ def initial_saps_segment(trainingSet, targetFile, imagesPath, labelsPath, patchS
                          spatialInfoType=INITIAL_SPATIAL_INFO, maskData=None, numProcessors=21):
     targetImage = open_image(join(imagesPath, targetFile))
 
-    print "ImageShape:", targetImage.shape
     # Ensure target subject is not included in atlases
     targetId = get_subject_id(targetFile)
     trainingSet = [x for x in trainingSet if get_subject_id(x) != targetId]
 
+    # initialise the spatial-pbs object
     saps = SAPS(imagesPath, labelsPath, patchSize, boundaryDilation=None,
                 spatialWeight=spatialWeight, minValue=None, maxValue=None,
                 spatialInfoType=spatialInfoType)
@@ -41,15 +46,15 @@ def initial_saps_segment(trainingSet, targetFile, imagesPath, labelsPath, patchS
 
 
 def refinement_saps_segment(trainingSet, targetFile, imagesPath, labelsPath, patchSize, k, spatialWeight,
-                            prevResultsPath, dtLabels, boundaryRefinementSize=2, dtErosion=None,
+                            prevResultsPath, dtLabels, boundaryRefinementSize=2, preDtErosion=None,
                             spatialInfoType=REFINEMENT_SPATIAL_INFO, numProcessors=21):
     targetImage = open_image(join(imagesPath, targetFile))
 
-    print "ImageShape:", targetImage.shape
     # Ensure target subject is not included in atlases
     targetId = get_subject_id(targetFile)
     trainingSet = [x for x in trainingSet if get_subject_id(x) != targetId]
 
+    # initialise the spatial-pbs object
     saps = SAPS(imagesPath, labelsPath, patchSize, boundaryDilation=boundaryRefinementSize,
                 spatialWeight=spatialWeight, minValue=None, maxValue=None,
                 spatialInfoType=spatialInfoType)
@@ -58,37 +63,42 @@ def refinement_saps_segment(trainingSet, targetFile, imagesPath, labelsPath, pat
     refinementMask = get_boundary_mask(prevResults, boundaryRefinementSize)
     queryMaskDict = {1: refinementMask}
 
-    if dtErosion is None:
-        dtErosion = boundaryRefinementSize
+    # erosion of labels before calculating spatial context
+    if preDtErosion is None:
+        preDtErosion = boundaryRefinementSize
 
+    # get spatial context to use from previous results
     spatialInfo = spatialcontext.get_dt_spatial_context_dict(prevResults, spatialInfoType=spatialInfoType,
-                                                             spatialLabels=dtLabels, labelErosion=dtErosion,
+                                                             spatialLabels=dtLabels, labelErosion=preDtErosion,
                                                              imageData=targetImage).values()
 
     # get results
     results = saps.label_image(targetImage, k, trainingSet, queryMaskDict=queryMaskDict, spatialInfo=spatialInfo,
-                               dtLabels=dtLabels, numProcessors=numProcessors)
+                               dtLabels=dtLabels, preDtErosion=preDtErosion, numProcessors=numProcessors)
 
     return results
 
 
 def run_leave_one_out(imagesPath, labelsPath, savePath, patchSize=7, k=15, spatialWeight=400,
-                      prevResultsPath=None, dtLabels=None, refinementSize=2,
+                      prevResultsPath=None, dtLabels=None, preDtErosion=None, refinementSize=2,
                       numProcessors=8, fileName="*.nii.gz"):
     files = glob.glob(join(imagesPath, fileName))
     print "Number of files found:", len(files)
     dataset = [basename(x) for x in files]
 
     if prevResultsPath is not None:
+        # do refinement
         for targetFile in dataset:
             trainingSet = [x for x in dataset if x != targetFile]
             results = refinement_saps_segment(trainingSet, targetFile, imagesPath, labelsPath,
                                               patchSize, k, spatialWeight,
-                                              prevResultsPath, dtLabels, boundaryRefinementSize=refinementSize,
+                                              prevResultsPath, dtLabels, preDtErosion=preDtErosion,
+                                              boundaryRefinementSize=refinementSize,
                                               numProcessors=numProcessors)
             save_3d_labels_data(results, get_affine(join(imagesPath, targetFile)),
                                 join(savePath, targetFile))
     else:
+        # do initial segmentation
         for targetFile in dataset:
             trainingSet = [x for x in dataset if x != targetFile]
             results = initial_saps_segment(trainingSet, targetFile, imagesPath, labelsPath,
@@ -102,13 +112,13 @@ if __name__ == '__main__':
 
     parser = ArgumentParser()
     parser.add_argument("--imagesPath", default=None,
-                        help="Set images to use")
+                        help="Set path to images (specify folder)")
     parser.add_argument("--labelsPath", default=None,
-                        help="Set labels to use")
+                        help="Set path to labels (specify folder) ")
     parser.add_argument("--savePath", default=None,
-                        help="Set path to initial results")
+                        help="Set path to save results (specify folder)")
     parser.add_argument("--prevResultsPath", default=None,
-                        help="Set path to results folder that can be used")
+                        help="Set path to initial results for refinement (specify folder)")
 
     parser.add_argument("--fileName", default="*.nii.gz",
                         help="Specify which files to work on (takes regex)")
@@ -121,6 +131,8 @@ if __name__ == '__main__':
                         help="Set path to initial results")
     parser.add_argument("--dtLabels", type=int, default=None, nargs="+",
                         help="Set the labels (structures) to use to provide adaptive spatial context")
+    parser.add_argument("--preDtErosion", type=int, default=None,
+                        help="Set the erosion of labels data to apply prior to any distance transforms")
     parser.add_argument("--refinementSize", type=int, default=2,
                         help="Set boundary size for refinement (number of dilations-erosions used)")
 
@@ -130,6 +142,9 @@ if __name__ == '__main__':
     options = parser.parse_args()
 
     run_leave_one_out(options.imagesPath, options.labelsPath, options.savePath, patchSize=options.patchSize,
-                      k=options.k, prevResultsPath=options.prevResultsPath, dtLabels=options.dtLabels,
+                      k=options.k, prevResultsPath=options.prevResultsPath,
+                      dtLabels=options.dtLabels, preDtErosion=options.preDtErosion,
                       spatialWeight=options.spatialWeight, numProcessors=options.numProcessors,
                       fileName=options.fileName, refinementSize=options.refinementSize)
+
+    print "Done!"
