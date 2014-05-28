@@ -25,6 +25,24 @@ import spatch
 
 VERSION = spatch.__version__
 
+###############################################################################
+# Optional setuptools features
+# We need to import setuptools early, if we want setuptools features,
+# as it monkey-patches the 'setup' function
+
+# For some commands, use setuptools
+if len(set(('develop', 'release', 'bdist_egg', 'bdist_rpm',
+            'bdist_wininst', 'install_egg_info', 'build_sphinx',
+            'egg_info', 'easy_install', 'upload', 'bdist_wheel',
+            '--single-version-externally-managed')).intersection(sys.argv)) > 0:
+    extra_setuptools_args = dict(
+        zip_safe=False,  # the package can run out of an .egg file
+        include_package_data=True)
+else:
+    extra_setuptools_args = dict()
+
+###############################################################################
+
 
 class CleanCommand(Clean):
     description = "Remove build directories, and compiled file in the source tree"
@@ -83,11 +101,7 @@ def setup_package():
                                  'Operating System :: Unix',
                                  'Operating System :: MacOS',
                                  'Programming Language :: Python :: 2',
-                                 'Programming Language :: Python :: 2.6',
-                                 'Programming Language :: Python :: 2.7',
-                                 'Programming Language :: Python :: 3',
-                                 'Programming Language :: Python :: 3.3',
-                                 'Programming Language :: Python :: 3.4'],
+                                 'Programming Language :: Python :: 2.7'],
                     cmdclass={'clean': CleanCommand})
 
     if (len(sys.argv) >= 2
