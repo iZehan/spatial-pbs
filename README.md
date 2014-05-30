@@ -21,7 +21,11 @@ Simply run 'python setup.py install' to install to your python environment.
 
 Usage
 =====
-Due to the large size of many (3D) medical images and the large memory requirement of vectorizing patches, each image may need to be loaded individually - this is why the PatchMaker object takes in the paths to the image and labels for each atlas, patch extraction and knn search is then handled per atlas, loading each atlas one at a time (can be parallelised). Therefore having a suitable file organisation of images and atlases is required (see example in Examples/simplerun.py)
+Currently only supporting 3D images.
+
+For running patch-based segmentation, due to the large size of many (3D) medical images and the large memory requirement of vectorizing patches, each image may need to be loaded individually - this is why the PatchMaker object takes in the paths to the image and labels for each atlas, patch extraction and knn search is then handled per atlas, loading each atlas one at a time (can be parallelised). Therefore having a suitable file organisation of images and atlases is required (see example in Examples/simplerun.py)
+
+For other functions (such as spatial context, distance transforms, patch extraction), they can be used to operate on numpy arrays in memory.
 
 
 
