@@ -23,7 +23,11 @@ SK_DUAL_TREE = "scikit-ball-tree-dual"
 
 __all__ = ["ImagePatchSearcher"]
 
+
 def choose_leaf_size(numItems):
+    """
+    Rough choice for selecting leaf size - performance will vary
+    """
     multiplier = 14
     if numItems < 100:
         multiplier = 1
@@ -79,7 +83,6 @@ def query_dual_tree(tree, queryData, k):
 
 
 class KnnSearcher(object):
-
     def __init__(self, knnStructureType, maxData=None):
         self.maxData = maxData
         if knnStructureType == CUSTOM_BALL_TREE:
@@ -164,13 +167,13 @@ class ImagePatchSearcher(object):
                                 minValue=self.minValue, maxValue=self.maxValue, dtLabelsPath=dtLabelsPath,
                                 gdtImagePath=gdtImagePath,
                                 is2D=self.is2D, rescaleIntensities=self.rescaleIntensities)
-        patchDict = patchMaker.get_patch_dict2(self.patchSize,
-                                               spatialWeight=self.spatialWeight, boundaryDilation=boundaryDilation,
-                                               spatialRegionIndex=regionIndex, spatialRegionLabels=spatialRegionLabels,
-                                               spatialLabels=dtLabels,
-                                               labelErosion=preDtErosion, boundaryClipSize=boundaryClipping,
-                                               spatialInfoType=self.spatialInfoType, roiMask=roiMask, dtSeeds=dtSeeds,
-                                               includePatchSizeKey=False)
+        patchDict = patchMaker.get_patch_dict(self.patchSize,
+                                              spatialWeight=self.spatialWeight, boundaryDilation=boundaryDilation,
+                                              spatialRegionIndex=regionIndex, spatialRegionLabels=spatialRegionLabels,
+                                              spatialLabels=dtLabels,
+                                              labelErosion=preDtErosion, boundaryClipSize=boundaryClipping,
+                                              spatialInfoType=self.spatialInfoType, roiMask=roiMask, dtSeeds=dtSeeds,
+                                              includePatchSizeKey=False)
 
         if patchDict is None:
             return None

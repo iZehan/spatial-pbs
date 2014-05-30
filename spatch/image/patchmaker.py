@@ -17,8 +17,7 @@ import mask
 from transform import interpolate_to_shape
 
 from spatialcontext import region_dict_from_dt_dict, get_dt_spatial_context_dict, \
-    EDT, GDT, GENERIC_SPATIAL_INFO_TYPES, dist_to_y_2d_centre_spatial_info, dist_to_centre_spatial_info, \
-    get_coordinates, get_generic_spatial_info
+    EDT, GDT, GENERIC_SPATIAL_INFO_TYPES, get_generic_spatial_info
 from transform import zero_out_boundary, image_boundary_expand
 from intensity import rescale_data
 
@@ -54,19 +53,19 @@ class PatchMaker(object):
         self.rescaleIntensities = rescaleIntensities
         self.gdtImagePath = gdtImagePath
 
-    def get_labels_data(self):
+    def _get_labels_data(self):
         labelsData = open_image(self.labelsPath)
         if self.imageExpand:
             labelsData = image_boundary_expand(labelsData, useGradient=False, is2D=self.is2D)
         return labelsData
 
-    def get_image_data(self):
+    def _get_image_data(self):
         imageData = open_image(self.imagePath)
         if self.imageExpand:
             imageData = image_boundary_expand(imageData, is2D=self.is2D)
         return imageData
 
-    def __get_dt_image_data(self, spatialInfoType, imageData):
+    def _get_dt_image_data(self, spatialInfoType, imageData):
         dtImage = None
         if spatialInfoType == GDT:
             if self.gdtImagePath is not None:
@@ -77,18 +76,17 @@ class PatchMaker(object):
                 dtImage = imageData
         return dtImage
 
-    def get_dt_voxel_size(self):
+    def _get_dt_voxel_size(self):
         if self.gdtImagePath is not None:
             return get_voxel_size(self.gdtImagePath)
         else:
             return get_voxel_size(self.labelsPath)
 
-    def get_patch_dict2(self, patchSize, spatialWeight=0, boundaryDilation=None, spatialRegionLabels=None,
-                        spatialRegionIndex=None, spatialLabels=None, dtSeeds=None,
-                        labelErosion=0, boundaryClipSize=0, spatialInfoType=EDT, roiMask=None, separateSpatial=False,
-                        includePatchSizeKey=False):
+    def get_patch_dict(self, patchSize, spatialWeight=0, boundaryDilation=None, spatialRegionLabels=None,
+                       spatialRegionIndex=None, spatialLabels=None, dtSeeds=None,
+                       labelErosion=0, boundaryClipSize=0, spatialInfoType=EDT, roiMask=None, separateSpatial=False,
+                       includePatchSizeKey=False):
         """
-
         @param patchSize: int or tuple to determine size of patch. if int, assume isotropic
         @param spatialWeight: spatial weighting to apply if using spatial info
         @param boundaryDilation: boundary around labels (if getting boundary refinement patches)
@@ -100,7 +98,7 @@ class PatchMaker(object):
         @param roiMask:
         @return: a dictionary of {label: patches}
         """
-        imageData = self.get_image_data()
+        imageData = self._get_image_data()
         labelsData = open_image(self.labelsPath)
 
         # put check in that transformed atlas actually overlaps
@@ -111,7 +109,7 @@ class PatchMaker(object):
             if set(uniqueLabels).intersection(set(spatialLabels)) == set():
                 return None
 
-        voxelSize = self.get_dt_voxel_size()
+        voxelSize = self._get_dt_voxel_size()
         getBoundaryPatches = roiMask is None
 
         if self.imageExpand:
@@ -137,7 +135,7 @@ class PatchMaker(object):
                         if dtLabelsData.shape != labelsData.shape:
                             dtLabelsData = interpolate_to_shape(dtLabelsData, labelsData.shape)
 
-                dtImage = self.__get_dt_image_data(spatialInfoType, imageData)
+                dtImage = self._get_dt_image_data(spatialInfoType, imageData)
 
                 spatialLabelDict = get_dt_spatial_context_dict(dtLabelsData, spatialInfoType,
                                                                spatialLabels=spatialLabels,
@@ -157,7 +155,7 @@ class PatchMaker(object):
             if spatialRegionLabels is None:
                 spatialRegionLabels = spatialLabels
             if spatialLabelDict is None:
-                dtImage = self.__get_dt_image_data(spatialInfoType, imageData)
+                dtImage = self._get_dt_image_data(spatialInfoType, imageData)
                 dtLabelsData = labelsData
                 if self.dtLabelsPath is not None:
                     dtLabelsData = open_image(self.dtLabelsPath)
@@ -205,92 +203,6 @@ class PatchMaker(object):
         if includePatchSizeKey:
             patchDict["patchSize"] = patchSize
         return patchDict
-
-    def get_patch_dict(self, patchSize, maskData=None, minValue=None, maxValue=None):
-        """
-            returns a dictionary {label : [patches]}
-
-        @param patchSize: int or tuple to determine size of patch. if int, assume isotropic
-        @param maskData: mask to use (numpy array)
-        @param minValue: minimum value in data to include
-        @param maxValue: max value in data to include
-        """
-        imageData = self.get_image_data()
-        labelsData = self.get_labels_data()
-        maskData = mask.get_min_max_mask(imageData, minValue, maxValue, maskData)
-        labelMasks = mask.get_label_masks(labelsData, self.specificLabels)
-        if maskData is not None:
-            labelMasks = [logical_and(m, maskData) for m in labelMasks]
-        patchDict = dict((self.specificLabels[i], get_patches(imageData, patchSize, labelMasks[i], verbose=True))
-                         for i in xrange(len(labelMasks)))
-        patchDict["patchSize"] = patchSize
-        return patchDict
-
-    def get_coordinate_patch_dict(self, patchSize, maskData=None, minValue=None, maxValue=None, normaliseSpatial=False):
-        labelsData = self.get_labels_data()
-        spatialInfo = get_coordinates(labelsData, normalise=normaliseSpatial)
-        return self.get_spatial_patch_dict(patchSize, spatialInfo, maskData, minValue, maxValue)
-
-    def get_centre_dist_patch_dict(self, patchSize,
-                                   maskData=None, minValue=None, maxValue=None, normaliseSpatial=False):
-        labelsData = self.get_labels_data()
-        spatialInfo = dist_to_centre_spatial_info(labelsData, normalise=normaliseSpatial)
-        return self.get_spatial_patch_dict(patchSize, spatialInfo, maskData, minValue, maxValue)
-
-    def get_y_centre_dist_patch_dict(self, patchSize,
-                                     maskData=None, minValue=None, maxValue=None, normaliseSpatial=False):
-        labelsData = self.get_labels_data()
-        spatialInfo = dist_to_y_2d_centre_spatial_info(labelsData, normalise=normaliseSpatial)
-        return self.get_spatial_patch_dict(patchSize, spatialInfo, maskData, minValue, maxValue)
-
-    def get_boundary_patch_dict(self, patchSize, boundaryDilation,
-                                maskData=None, minValue=None, maxValue=None):
-        """
-            returns a dictionary {label : [patches]} but where patches come from the boundary of the label
-            the boundary thickness = 2* boundaryDilation
-        """
-        labelsData = self.get_labels_data()
-        if maskData is None:
-            maskData = mask.get_boundary_mask(labelsData, boundaryDilation, self.boundaryLabels)
-        else:
-            maskData *= mask.get_boundary_mask(labelsData, boundaryDilation, self.boundaryLabels)
-
-        return self.get_patch_dict(patchSize, maskData, minValue, maxValue)
-
-    def get_spatial_patch_dict(self, patchSize, spatialInfo,
-                               maskData=None, minValue=None, maxValue=None):
-        """
-            returns a dictionary {label : [Spatially aware patches]}
-            spatialInfo must be of compatible shape to image (need to expand if imageExpand)
-                - spatial info is appended to the patch intensities
-        """
-        imageData = self.get_image_data()
-        labelsData = self.get_labels_data()
-        maskData = mask.get_min_max_mask(imageData, minValue, maxValue, maskData)
-        labelMasks = mask.get_label_masks(labelsData, self.specificLabels)
-        if maskData is not None:
-            labelMasks = [logical_and(m, maskData) for m in labelMasks]
-        patchDict = dict((self.specificLabels[i], get_patches(imageData, patchSize, labelMasks[i],
-                                                              spatialData=spatialInfo, verbose=True))
-                         for i in xrange(len(labelMasks)))
-        patchDict["patchSize"] = patchSize
-        return patchDict
-
-    def get_boundary_spatial_patch_dict(self, patchSize, spatialInfo, boundaryDilation,
-                                        maskData=None, minValue=None, maxValue=None):
-        """
-            returns a dictionary {label : [patches]} but where patches come from the boundary of the label
-            the boundary thickness = 2* boundaryDilation
-        """
-        labelsData = self.get_labels_data()
-        if maskData is None:
-            maskData = mask.get_boundary_mask(labelsData, boundaryDilation, self.boundaryLabels)
-        else:
-            maskData = logical_and(mask.get_boundary_mask(labelsData, boundaryDilation, self.boundaryLabels),
-                                   maskData)
-
-        return self.get_spatial_patch_dict(patchSize, spatialInfo,
-                                           maskData=maskData, minValue=minValue, maxValue=maxValue)
 
 
 def patch_view(data, patchSize=(3, 3, 3)):

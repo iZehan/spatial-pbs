@@ -2,3 +2,35 @@ spatial-pbs
 ===========
 
 Library for patch-based segmentation (pbs) with spatial context. (Spatially Aware Patch-based Segmentation)
+
+This library provides:
+
+ - Functions for fast patch extraction and vectorization from images
+ - An implementation of a balltree for performing multiple knn queries in parallel (using openmp)
+ - Methods for providing spatial context, including using geodesic distance transforms
+ - Patch-based segmentation with spatial context
+
+
+Installation
+============
+
+There are some common Python dependencies - listed in requirements.txt
+
+Simply run 'python setup.py install' to install to your python environment.
+
+
+Usage
+=====
+Due to the large size of many (3D) medical images and the large memory requirement of vectorizing patches, each image may need to be loaded separately
+
+
+
+Publications
+============
+
+This library (or variants) have been used for the following publications:
+
+- Z. Wang, R. Wolz, T. Tong, D. Rueckert - "Spatially Aware Patch-Based Segmentation (SAPS): An Alternative Patch-Based Segmentation Framework" http://link.springer.com/chapter/10.1007/978-3-642-36620-8_10
+- Z. Wang, C. Donoghue, D. Rueckert - "Patch-Based Segmentation without Registration: Application to Knee MRI" http://link.springer.com/chapter/10.1007/978-3-319-02267-3_13
+- Z. Wang, K. Bhatia, B. Glocker, A. de Marvao, T. Dawes, K. Misawa, K. Mori, D. Rueckert - "Geodesic Patch-based Segmentation"
+
