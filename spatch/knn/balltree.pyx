@@ -229,10 +229,6 @@ cdef inline DATA_TYPE_C dmax(DATA_TYPE_C x, DATA_TYPE_C y) nogil:
 
 cdef inline DATA_TYPE_C dmin(DATA_TYPE_C x, DATA_TYPE_C y) nogil:
     return min(x, y)
-######################################################################
-
-cdef extern from "math.h" nogil:
-    bint isnan(double x)
 
 
 ######################################################################
@@ -254,8 +250,6 @@ cdef inline DATA_TYPE_C squared_euclidean_distance(DATA_TYPE_C *x1, DATA_TYPE_C 
     cdef DATA_TYPE_C r, d
     r = 0
     for i in range(n):
-        if isnan(x1[i]) or isnan(x2[i]):
-            r += NAN_DIFF
         d = x1[i] - x2[i]
         r += d * d
     return r
@@ -266,8 +260,6 @@ cdef inline DATA_TYPE_C p_powered_minkowski_distance(DATA_TYPE_C *x1, DATA_TYPE_
     cdef DATA_TYPE_C r, d
     r = 0
     for i in range(n):
-        if isnan(x1[i]) or isnan(x2[i]):
-            r += NAN_DIFF
         d = fabs(x1[i] - x2[i])
         r += pow(d, p)
     return r
@@ -278,8 +270,6 @@ cdef inline DATA_TYPE_C minkowski_distance(DATA_TYPE_C *x1, DATA_TYPE_C *x2,
     cdef DATA_TYPE_C r, d
     r = 0
     for i in range(n):
-        if isnan(x1[i]) or isnan(x2[i]):
-            r += NAN_DIFF
         d = fabs(x1[i] - x2[i])
         r += pow(d, p)
     return pow(r, 1./p)
@@ -290,8 +280,6 @@ cdef inline DATA_TYPE_C manhattan_distance(DATA_TYPE_C *x1, DATA_TYPE_C *x2,
     cdef DATA_TYPE_C r
     r = 0
     for i in range(n):
-        if isnan(x1[i]) or isnan(x2[i]):
-            r += NAN_DIFF
         r += fabs(x1[i] - x2[i])
     return r
 
@@ -301,8 +289,6 @@ cdef inline DATA_TYPE_C euclidean_distance(DATA_TYPE_C *x1, DATA_TYPE_C *x2,
     cdef DATA_TYPE_C r, d
     r = 0
     for i in range(n):
-        if isnan(x1[i]) or isnan(x2[i]):
-            r += NAN_DIFF
         d = x1[i] - x2[i]
         r += d * d
     return sqrt(r)
@@ -313,8 +299,6 @@ cdef inline DATA_TYPE_C dist_p_inf(DATA_TYPE_C *x1, DATA_TYPE_C *x2,
     cdef DATA_TYPE_C r
     r = 0
     for i in range(n):
-        if isnan(x1[i]) or isnan(x2[i]):
-            r += NAN_DIFF
         r = dmax(r, fabs(x1[i] - x2[i]))
     return r
 
