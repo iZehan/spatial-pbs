@@ -9,6 +9,7 @@ This library provides:
  - An implementation of a balltree for performing multiple knn queries in parallel (using openmp)
  - Methods for providing spatial context, including using geodesic distance transforms
  - Patch-based segmentation with spatial context
+ - Geodesic Patch-based Segmentation framework
 
 
 Installation
@@ -37,4 +38,4 @@ This library (or variants) have been used for the following publications:
 - Z. Wang, R. Wolz, T. Tong, D. Rueckert - "Spatially Aware Patch-Based Segmentation (SAPS): An Alternative Patch-Based Segmentation Framework" http://link.springer.com/chapter/10.1007/978-3-642-36620-8_10
 - Z. Wang, C. Donoghue, D. Rueckert - "Patch-Based Segmentation without Registration: Application to Knee MRI" http://link.springer.com/chapter/10.1007/978-3-319-02267-3_13
 - Z. Wang, K. Bhatia, B. Glocker, A. de Marvao, T. Dawes, K. Misawa, K. Mori, D. Rueckert - "Geodesic Patch-based Segmentation"
-
+http://link.springer.com/chapter/10.1007/978-3-319-10404-1_83
